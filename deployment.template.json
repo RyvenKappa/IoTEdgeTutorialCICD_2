@@ -57,23 +57,13 @@
           }
         },
         "modules": {
-          "mymodule2": {
+          "car_module": {
             "version": "1.0",
             "type": "docker",
             "status": "running",
             "restartPolicy": "always",
             "settings": {
               "image": "${CONTAINER_REGISTRY_ADDRESS}/${MODULE_NAME}:${MODULE_VERSION}",
-              "createOptions": {}
-            }
-          },
-          "SimulatedTemperatureSensor": {
-            "version": "1.0",
-            "type": "docker",
-            "status": "running",
-            "restartPolicy": "always",
-            "settings": {
-              "image": "mcr.microsoft.com/azureiotedge-simulated-temperature-sensor:1.4",
               "createOptions": {}
             }
           }
@@ -84,8 +74,7 @@
       "properties.desired": {
         "schemaVersion": "1.2",
         "routes": {
-          "mymodule2ToIoTHub": "FROM /messages/modules/mymodule2/outputs/* INTO $upstream",
-          "sensorTomymodule2": "FROM /messages/modules/SimulatedTemperatureSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"/modules/mymodule2/inputs/input1\")"
+          "car_moduleToIoTHub": "FROM /messages/modules/car_module/outputs/* INTO $upstream"
         },
         "storeAndForwardConfiguration": {
           "timeToLiveSecs": 7200

@@ -9,16 +9,17 @@ stages:
       vmImage: ubuntu-22.04
     steps:
     - script: |
-        cd ./modules/$(MODULE_NAME)
         dotnet publish --os linux --arch x64 /t:PublishContainer
+      workingDirectory: $(sourceDir)/modules/$(MODULE_NAME)
       displayName: 'Build Docker Image'
-
 
     - script: |
         docker login -u $(CONTAINER_REGISTRY_USERNAME) -p $(CONTAINER_REGISTRY_PASSWORD) $(CONTAINER_REGISTRY_ADDRESS)
         docker tag $(MODULE_NAME) $(CONTAINER_REGISTRY_ADDRESS)/$(MODULE_NAME):$(MODULE_VERSION)
         docker push $(CONTAINER_REGISTRY_ADDRESS)/$(MODULE_NAME):$(MODULE_VERSION)
+      workingDirectory: $(sourceDir)
       displayName: 'Push Docker Image'
+
 - stage: Release
   jobs:
   - job: J2
@@ -26,25 +27,25 @@ stages:
       vmImage: ubuntu-22.04
     steps:
     - script: |
-        #install python 3.9
-        sudo apt install software-properties-common
-        sudo add-apt-repository ppa:deadsnakes/ppa
-        sudo apt install python3.9
-        #install pip
-        sudo apt install python3.9-distutils
+        sudo apt install software-properties-common -y
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt install python3.9 -y
+        sudo apt install python3.9-distutils -y
         curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
         python3.9 get-pip.py
-        #install iotedgedev
         python3.9 -m pip install -U iotedgedev pyOpenSSL==22.0.0 urllib3==1.22 requests
-      displayName: 'Command Line Script'
+      workingDirectory: $(sourceDir)
+      displayName: 'Install Python & iotedgedev'
+
     - task: AzureIoTEdge@2
       inputs:
         action: 'Generate deployment manifest'
-        templateFilePath: 'deployment.template.json'
+        templateFilePath: '$(sourceDir)/deployment.template.json'
         defaultPlatform: 'amd64'
         deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/config/deployment.json'
         validateGeneratedDeploymentManifest: 'true'
       displayName: 'Generate Deployment manifest'
+
     - task: AzureIoTEdge@2
       inputs:
         action: 'Deploy to IoT Edge devices'

@@ -1,19 +1,58 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - main
 
-pool:
-  vmImage: ubuntu-latest
+stages:
+- stage: Build
+  jobs:
+  - job: J1
+    pool:
+      vmImage: ubuntu-22.04
+    steps:
+    - script: |
+        cd ./modules/$(MODULE_NAME)
+        dotnet publish --os linux --arch x64 /t:PublishContainer
+      displayName: 'Build Docker Image'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    - script: |
+        docker login -u $(CONTAINER_REGISTRY_USERNAME) -p $(CONTAINER_REGISTRY_PASSWORD) $(CONTAINER_REGISTRY_ADDRESS)
+        docker tag $(MODULE_NAME) $(CONTAINER_REGISTRY_ADDRESS)/$(MODULE_NAME):$(MODULE_VERSION)
+        docker push $(CONTAINER_REGISTRY_ADDRESS)/$(MODULE_NAME):$(MODULE_VERSION)
+      displayName: 'Push Docker Image'
+- stage: Release
+  jobs:
+  - job: J2
+    pool:
+      vmImage: ubuntu-22.04
+    steps:
+    - script: |
+        #install python 3.9
+        sudo apt install software-properties-common
+        sudo add-apt-repository ppa:deadsnakes/ppa
+        sudo apt install python3.9
+        #install pip
+        sudo apt install python3.9-distutils
+        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        python3.9 get-pip.py
+        #install iotedgedev
+        python3.9 -m pip install -U iotedgedev pyOpenSSL==22.0.0 urllib3==1.22 requests
+      displayName: 'Command Line Script'
+    - task: AzureIoTEdge@2
+      inputs:
+        action: 'Generate deployment manifest'
+        templateFilePath: 'deployment.template.json'
+        defaultPlatform: 'amd64'
+        deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/config/deployment.json'
+        validateGeneratedDeploymentManifest: 'true'
+      displayName: 'Generate Deployment manifest'
+    - task: AzureIoTEdge@2
+      inputs:
+        action: 'Deploy to IoT Edge devices'
+        deploymentFilePath: '$(System.DefaultWorkingDirectory)/config/deployment.json'
+        azureSubscription: 'Azure for Students(1)(dabf653f-69aa-4b1f-b3ca-377f7318dddf)'
+        iothubname: 'DiegoIoTHubTutorial'
+        deploymentid: '$(System.TeamProject)-devops-deployment'
+        priority: '0'
+        deviceOption: 'Single Device'
+        deviceId: 'diegoEdgeDevice3'
+      displayName: 'Deploy to IoT Edge devices'

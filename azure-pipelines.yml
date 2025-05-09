@@ -12,7 +12,21 @@ stages:
         dotnet publish --os linux --arch x64 /t:PublishContainer
       workingDirectory: $(sourceDir)/modules/$(MODULE_NAME)
       displayName: 'Build Docker Image'
-
+    - script: |
+        # Obtener el valor actual de la versión (MODULE_VERSION)
+        echo "Current MODULE_VERSION: $(MODULE_VERSION)"
+        # Extraer el último número antes de '-amd64' y convertirlo a un número
+        VERSION_PARTS=$(echo $(MODULE_VERSION) | sed 's/-amd64//g' | tr '.' ' ')  # Convertir la versión en partes
+        VERSION_ARRAY=($VERSION_PARTS)  # Crear un array con las partes de la versión
+        # Incrementar el último número (el número de la versión mayor/minor)
+        LAST_PART=${VERSION_ARRAY[2]}  # Obtener la última parte (la que queremos incrementar)
+        NEW_LAST_PART=$((LAST_PART + 1))  # Incrementar la última parte
+        # Reconstruir la nueva versión
+        NEW_MODULE_VERSION="${VERSION_ARRAY[0]}.${VERSION_ARRAY[1]}.$NEW_LAST_PART-amd64"  # Reconstruir la versión completa
+        # Establecer la nueva versión como variable en el pipeline
+        echo "New MODULE_VERSION: $NEW_MODULE_VERSION"
+        echo "##vso[task.setvariable variable=MODULE_VERSION]$NEW_MODULE_VERSION"  # Actualizar la variable MODULE_VERSION
+      displayName: 'Incrementar MODULE_VERSION'
     - script: |
         docker login -u $(CONTAINER_REGISTRY_USERNAME) -p $(CONTAINER_REGISTRY_PASSWORD) $(CONTAINER_REGISTRY_ADDRESS)
         docker tag $(MODULE_NAME) $(CONTAINER_REGISTRY_ADDRESS)/$(MODULE_NAME):$(MODULE_VERSION)
